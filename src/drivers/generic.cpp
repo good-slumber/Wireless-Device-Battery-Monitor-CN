@@ -215,8 +215,14 @@ void PollBluetooth(PollContext& ctx) {
             if (!cat.empty()) containerCat[cid] = cat;
             DEVPROP_BOOLEAN conn;
             if (SetupDiGetDevicePropertyW(di, &dd, &kIsConnected, &t, (PBYTE)&conn, sizeof(conn), nullptr, 0) &&
-                t == DEVPROP_TYPE_BOOLEAN)
-                containerConn[cid] = conn != DEVPROP_FALSE;
+                t == DEVPROP_TYPE_BOOLEAN) {
+                // A container can hold a classic and an LE node for the same device; the dormant LE
+                // node reports disconnected even while the classic link is up. OR the flags so a
+                // disconnected secondary node never overwrites a connected primary one.
+                bool nodeConn = conn != DEVPROP_FALSE;
+                auto prevConn = containerConn.find(cid);
+                containerConn[cid] = (prevConn != containerConn.end() && prevConn->second) || nodeConn;
+            }
         }
 
         BYTE pct = 0;
